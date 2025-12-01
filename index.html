@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>非直播类模式收益预测模型</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            -webkit-tap-highlight-color: transparent; /* 移除移动端点击高亮 */
+        }
+        body {
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* 移动端顶部对齐 */
+            padding: 10px; /* 减少移动端内边距 */
+            overflow-x: hidden;
+        }
+        .calculator-container {
+            background: linear-gradient(145deg, #1e1e2e, #2d2d44);
+            border-radius: 15px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            width: 100%;
+            max-width: 900px;
+            overflow: hidden;
+            color: #e0e0e0;
+            position: relative;
+            min-height: auto; /* 移除固定高度 */
+            margin: 10px 0; /* 移动端上下间距 */
+        }
+        .header {
+            background: linear-gradient(to right, #16213e, #0f3460);
+            color: white;
+            padding: 20px 15px; /* 减少移动端内边距 */
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(to right, transparent, #4cc9f0, transparent);
+        }
+        h1 {
+            font-size: 24px; /* 减小移动端标题字体 */
+            margin-bottom: 5px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            line-height: 1.3; /* 增加行高提高可读性 */
+        }
+        .content {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 0;
+            min-height: auto; /* 移除固定高度 */
+        }
+        .input-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px 15px; /* 减少移动端内边距 */
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .result-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px 15px; /* 减少移动端内边距 */
+            background: rgba(30, 30, 46, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding-bottom: 70px; /* 为免责声明留出空间 */
+        }
+        .input-group {
+            margin-bottom: 20px; /* 减少移动端间距 */
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #b8b8b8;
+            font-weight: 500;
+            font-size: 15px;
+        }
+        input {
+            width: 100%;
+            padding: 14px 15px; /* 增大移动端输入框内边距 */
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            font-size: 16px;
+            transition: all 0.3s;
+            color: #e0e0e0;
+            min-height: 48px; /* 确保触摸区域足够大 */
+        }
+        input:focus {
+            outline: none;
+            border-color: #4cc9f0;
+            box-shadow: 0 0 0 2px rgba(76, 201, 240, 0.2);
+        }
+        input::placeholder {
+            color: #888;
+        }
+        .product-selection {
+            margin: 25px 0; /* 减少移动端间距 */
+        }
+        .product-options {
+            display: flex;
+            gap: 10px; /* 减小移动端间距 */
+            margin-top: 10px;
+            flex-wrap: wrap; /* 允许在小屏幕上换行 */
+        }
+        .product-option {
+            flex: 1;
+            min-width: 120px; /* 确保在小屏幕上仍有足够宽度 */
+            text-align: center;
+            padding: 15px 10px; /* 调整内边距 */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.03);
+            min-height: 70px; /* 增大触摸区域 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .product-option:hover {
+            border-color: #4cc9f0;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        .product-option.selected {
+            border-color: #4cc9f0;
+            background: rgba(76, 201, 240, 0.1);
+            box-shadow: 0 5px 15px rgba(76, 201, 240, 0.2);
+        }
+        .product-option h3 {
+            color: #e0e0e0;
+            margin-bottom: 0; /* 移除底部边距 */
+            font-size: 16px; /* 调整字体大小 */
+        }
+        .calculate-btn {
+            width: 100%;
+            padding: 16px; /* 增大移动端按钮内边距 */
+            background: linear-gradient(to right, #4cc9f0, #4361ee);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+            letter-spacing: 0.5px;
+            min-height: 54px; /* 确保触摸区域足够大 */
+        }
+        .calculate-btn:hover {
+            background: linear-gradient(to right, #3aa8d0, #3250d4);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 201, 240, 0.4);
+        }
+        .result-box {
+            text-align: center;
+            padding: 20px; /* 减少移动端内边距 */
+            background: rgba(30, 30, 46, 0.7);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: none;
+            width: 100%;
+            max-width: 100%;
+            margin-top: 10px;
+        }
+        .result-title {
+            font-size: 20px; /* 减小移动端字体 */
+            color: #b8b8b8;
+            margin-bottom: 15px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .result-value {
+            font-size: 36px; /* 减小移动端字体 */
+            font-weight: 700;
+            color: #4cc9f0;
+            margin: 15px 0;
+            text-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .result-details {
+            text-align: center;
+            margin-top: 20px; /* 减少移动端间距 */
+            width: 100%;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .detail-label {
+            color: #b8b8b8;
+            font-size: 14px; /* 减小移动端字体 */
+        }
+        .detail-value {
+            font-weight: 500;
+            color: #e0e0e0;
+            font-size: 14px; /* 减小移动端字体 */
+        }
+        .disclaimer {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            padding: 10px 15px;
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 3px solid #ffc107;
+            font-size: 12px;
+            color: #b8b8b8;
+            border-radius: 4px;
+            text-align: center;
+            width: calc(100% - 30px);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        /* 新增样式：预计成单量单独显示 */
+        .conversion-result {
+            text-align: center;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        .conversion-title {
+            font-size: 20px; /* 减小移动端字体 */
+            color: #b8b8b8;
+            margin-bottom: 10px;
+        }
+        .conversion-value {
+            font-size: 36px; /* 减小移动端字体 */
+            font-weight: 700;
+            color: #4cc9f0;
+            text-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 5px; /* 进一步减少移动端内边距 */
+                align-items: flex-start; /* 顶部对齐 */
+                min-height: 100vh;
+                height: auto;
+            }
+            .calculator-container {
+                margin: 10px 0;
+                min-height: auto;
+            }
+            .content {
+                flex-direction: column;
+            }
+            .input-section {
+                border-right: none;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 15px 10px; /* 进一步减少移动端内边距 */
+            }
+            .result-section {
+                padding: 15px 10px 60px; /* 进一步减少移动端内边距 */
+                min-height: 300px; /* 确保结果区域有足够高度 */
+            }
+            h1 {
+                font-size: 20px; /* 进一步减小移动端标题字体 */
+            }
+            .result-title, .conversion-title {
+                font-size: 18px;
+            }
+            .result-value, .conversion-value {
+                font-size: 32px;
+            }
+            .detail-item {
+                max-width: 100%;
+            }
+            .disclaimer {
+                position: relative;
+                bottom: auto;
+                left: auto;
+                right: auto;
+                width: 100%;
+                margin-top: 20px;
+                margin-bottom: 10px;
+            }
+            .product-options {
+                flex-direction: column; /* 垂直排列产品选项 */
+            }
+            .product-option {
+                min-width: 100%; /* 全宽显示 */
+            }
+        }
+        
+        /* 针对非常小的屏幕 */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 18px;
+            }
+            .result-value, .conversion-value {
+                font-size: 28px;
+            }
+        }
+        
+        /* 防止iOS Safari缩放 */
+        @media screen and (max-width: 768px) {
+            input, select, textarea {
+                font-size: 16px !important; /* 防止iOS Safari缩放 */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <div class="header">
+            <h1>非直播类模式收益预测模型</h1>
+        </div>
+        
+        <div class="content">
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="A">单月新增粉丝数</label>
+                    <input type="number" id="A" placeholder="请输入单月新增粉丝数" inputmode="numeric">
+                </div>
+                
+                <div class="input-group">
+                    <label for="B">公域社群添加微信数</label>
+                    <input type="number" id="B" placeholder="请输入公域社群添加微信数" inputmode="numeric">
+                </div>
+                
+                <div class="product-selection">
+                    <label>选择产品类型</label>
+                    <div class="product-options">
+                        <div class="product-option selected" data-product="E">
+                            <h3>投顾产品</h3>
+                        </div>
+                        <div class="product-option" data-product="F">
+                            <h3>投教产品</h3>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="calculate-btn" id="calculateBtn">计算预测收益</button>
+            </div>
+            
+            <div class="result-section">
+                <div class="result-box" id="resultBox">
+                    <!-- 预计成单量单独显示 -->
+                    <div class="conversion-result">
+                        <div class="conversion-title">预计成单量</div>
+                        <div class="conversion-value" id="C">0</div>
+                    </div>
+                    
+                    <!-- 预测综合收益显示 -->
+                    <div class="result-title">预测综合收益</div>
+                    <div class="result-value" id="resultValue">¥0</div>
+                    
+                    <!-- 删除预测综合收益下方的重复文本 -->
+                </div>
+                
+                <div class="disclaimer">
+                    该数据模型基于公司内部实际数据搭建，不代表最终数据
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const inputA = document.getElementById('A');
+            const inputB = document.getElementById('B');
+            const calculateBtn = document.getElementById('calculateBtn');
+            const productOptions = document.querySelectorAll('.product-option');
+            const resultBox = document.getElementById('resultBox');
+            const resultValue = document.getElementById('resultValue');
+            
+            // 详情元素
+            const C = document.getElementById('C');
+            
+            let selectedProduct = 'E'; // 默认选择投顾产品
+            
+            // 产品选择事件
+            productOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    productOptions.forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedProduct = this.getAttribute('data-product');
+                });
+            });
+            
+            // 计算按钮事件
+            calculateBtn.addEventListener('click', function() {
+                // 验证输入值
+                if (!validateInputs()) {
+                    return;
+                }
+                
+                // 计算结果
+                calculateResult();
+                
+                // 显示结果区域
+                resultBox.style.display = 'block';
+            });
+            
+            // 输入验证
+            function validateInputs() {
+                if (!inputA.value || parseFloat(inputA.value) <= 0) {
+                    alert('请输入有效的单月新增粉丝数');
+                    return false;
+                }
+                
+                if (!inputB.value || parseFloat(inputB.value) <= 0) {
+                    alert('请输入有效的公域社群添加微信数');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // 计算结果
+            function calculateResult() {
+                // 获取输入值
+                const A = parseFloat(inputA.value);
+                const B = parseFloat(inputB.value);
+                
+                let C_value, D_value;
+                
+                // 根据选择的产品类型计算
+                if (selectedProduct === 'E') {
+                    // 投顾产品计算逻辑
+                    C_value = Math.floor((A * 0.06 + B * 0.94) * 0.08);
+                    
+                    if (C_value < 200) {
+                        D_value = C_value * 0.10 * 5980;
+                    } else {
+                        D_value = C_value * 0.15 * 5980;
+                    }
+                } else {
+                    // 投教产品计算逻辑
+                    C_value = Math.floor((A * 0.06 + B * 0.94) * 0.10);
+                    
+                    if (C_value < 200) {
+                        D_value = C_value * 0.10 * 3980;
+                    } else {
+                        D_value = C_value * 0.15 * 3980;
+                    }
+                }
+                
+                // 更新结果显示
+                resultValue.textContent = '¥' + D_value.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+                
+                // 更新预计成单量显示
+                C.textContent = C_value.toLocaleString();
+            }
+        });
+    </script>
+</body>
+</html>
